@@ -1,0 +1,270 @@
+"use client";
+
+import React from "react";
+import { COLORS } from "@/lib/constants";
+import { TaxRow } from "@/lib/types";
+import { Skeleton } from "../ui/skeleton";
+import CustomTooltip from "../custom-tooltip";
+import { TabsContent } from "../ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "../ui/badge";
+import { BarChart3 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+interface TaxRecoveryProps {
+  taxData: TaxRow[];
+  loading: boolean;
+  schemeTotals: {
+    scheme: string;
+    expectedTax: number;
+    actualRecovery: number;
+    waterTotal: number;
+  }[];
+  kraData: Record<string, any>[];
+}
+
+// Resilient map to guarantee correct scheme styles regardless of array sorting order
+const SCHEME_COLORS: Record<string, string> = {
+  Tembhu: COLORS.tembhu,
+  Mhaisal: COLORS.mhaisal,
+  Takari: COLORS.takari,
+};
+
+export default function TaxRecovery({
+  taxData,
+  loading,
+  schemeTotals,
+  kraData,
+}: TaxRecoveryProps) {
+  // Safe helper to clean up dynamic naming mismatches
+  const cleanSchemeName = (name: string) =>
+    name.replace(" Lift Irrigation", "").trim();
+
+  return (
+    <TabsContent value="tax" className="mt-4 space-y-4">
+      {/* Summary cards */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {schemeTotals.map((s) => {
+            const normalizedName = cleanSchemeName(s.scheme);
+            const clr = SCHEME_COLORS[normalizedName] || "#64748b";
+            const recovery = s.actualRecovery;
+            const expected = s.expectedTax;
+            const pct =
+              expected > 0 ? ((recovery / expected) * 100).toFixed(1) : "–";
+
+            return (
+              <Card
+                key={s.scheme}
+                className="border shadow-sm"
+                style={{ borderColor: `${clr}40` }}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
+                      {s.scheme}
+                    </span>
+                    <Badge
+                      style={{
+                        background: `${clr}18`,
+                        color: clr,
+                        border: `1px solid ${clr}40`,
+                      }}
+                    >
+                      {pct}% recovered
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Expected:{" "}
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      ₹{(expected / 1e5).toFixed(1)}Cr
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Actual:{" "}
+                    <span className="font-semibold" style={{ color: clr }}>
+                      ₹{recovery.toFixed(1)}L
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Water Used:{" "}
+                    <span className="font-semibold">
+                      {s.waterTotal.toFixed(0)} mcft
+                    </span>
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* KRA chart */}
+      <Card className="border border-slate-100 dark:border-slate-800 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-sky-500" />
+            KRA Target vs Actual Recovery (₹ Lakhs)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart
+                data={kraData}
+                margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  width={40}
+                  tickFormatter={(v) => `₹${v.toFixed(0)}L`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Tembhu_Expected"
+                  name="Tembhu Expected"
+                  stroke={COLORS.tembhu}
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Tembhu_Actual"
+                  name="Tembhu Actual"
+                  stroke={COLORS.tembhu}
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Mhaisal_Expected"
+                  name="Mhaisal Expected"
+                  stroke={COLORS.mhaisal}
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Mhaisal_Actual"
+                  name="Mhaisal Actual"
+                  stroke={COLORS.mhaisal}
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Takari_Expected"
+                  name="Takari Expected"
+                  stroke={COLORS.takari}
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Takari_Actual"
+                  name="Takari Actual"
+                  stroke={COLORS.takari}
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Water usage comparison */}
+      <Card className="border border-slate-100 dark:border-slate-800 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Water Usage per Scheme — 2020 to 2025 (mcft)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-52 w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={[
+                  "2020-2021",
+                  "2021-2022",
+                  "2022-2023",
+                  "2023-2024",
+                  "2024-2025",
+                ].map((yr) => {
+                  const entry: Record<string, any> = {
+                    year: yr.slice(0, 7),
+                  };
+                  taxData
+                    .filter((r) => r.year === yr)
+                    .forEach((r) => {
+                      const key = cleanSchemeName(r.scheme);
+                      entry[key] = r.waterIncl || 0;
+                    });
+                  return entry;
+                })}
+                margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} width={40} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11 }}
+                />
+                <Bar
+                  dataKey="Tembhu"
+                  fill={COLORS.tembhu}
+                  radius={[3, 3, 0, 0]}
+                />
+                <Bar
+                  dataKey="Mhaisal"
+                  fill={COLORS.mhaisal}
+                  radius={[3, 3, 0, 0]}
+                />
+                <Bar
+                  dataKey="Takari"
+                  fill={COLORS.takari}
+                  radius={[3, 3, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
